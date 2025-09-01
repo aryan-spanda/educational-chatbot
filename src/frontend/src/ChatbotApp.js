@@ -8,6 +8,9 @@ export default function ChatbotApp() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
 
+  // Version info for GitOps demo - v1.1.0
+  const appVersion = "v1.1.0 - GitOps Demo";
+
   const courses = [
     { id: 'math101', name: 'Mathematics 101' },
     { id: 'physics201', name: 'Physics 201' },
@@ -190,6 +193,7 @@ export default function ChatbotApp() {
           <BookOpen className="header-icon" />
           <h1>AI Course Assistant</h1>
           <p>Select a course and start chatting with your AI assistant</p>
+          <small className="version-info">{appVersion}</small>
         </div>
       </header>
 

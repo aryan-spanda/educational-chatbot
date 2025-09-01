@@ -32,6 +32,14 @@
   margin: 0;
 }
 
+.version-info {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  opacity: 0.7;
+  font-style: italic;
+}
+
 /* Course Selection */
 .course-selection {
   max-width: 800px;

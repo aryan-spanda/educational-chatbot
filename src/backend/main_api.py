@@ -2,21 +2,11 @@
 
 import os
 import json
+import uvicorn
 from dotenv import load_dotenv, find_dotenv
 from fastapi import FastAPI
-import uvicorn
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-
-# --- Existing Setup (from your file) ---
-# Load environment variables
-dotenv_path = find_dotenv()
-load_dotenv(dotenv_path=dotenv_path, override=True)
-
-# Get environment variables
-model = os.getenv("model")
-base_url = os.getenv("base_url")
-cross_encoder_model = os.getenv("cross_encoder_model")
 
 # Import your RAG toolkit components
 from spanda_rag_toolkit import (
@@ -29,13 +19,23 @@ from spanda_rag_toolkit import (
 from chunk_extractor import ChunkExtraction 
 from math_checker import check_math_expression
 
+# --- Existing Setup (from your file) ---
+# Load environment variables
+dotenv_path = find_dotenv()
+load_dotenv(dotenv_path=dotenv_path, override=True)
+
+# Get environment variables
+model = os.getenv("model")
+base_url = os.getenv("base_url")
+cross_encoder_model = os.getenv("cross_encoder_model")
+
 # --- FastAPI Application Setup ---
 
 # Create a FastAPI app instance
 app = FastAPI(
     title="Spanda RAG API",
-    description="An API for processing questions with a RAG pipeline.",
-    version="1.0.0"
+    description="An API for processing questions with a RAG pipeline - GitOps Demo.",
+    version="1.1.0"
 )
 
 app.add_middleware(
@@ -165,6 +165,25 @@ def run_rag_pipeline(user_question: str):
         return {"error": error_message}
 
 # --- API Endpoint Definition ---
+@app.get("/")
+async def root():
+    """
+    Root endpoint that returns API information and version.
+    """
+    return {
+        "message": "Spanda RAG API - GitOps Demo",
+        "version": "1.1.0",
+        "status": "running",
+        "demo": "CI/CD Pipeline Integration"
+    }
+
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint for monitoring.
+    """
+    return {"status": "healthy", "version": "1.1.0"}
+
 @app.post("/ask/")
 async def ask_question(request: QuestionRequest):
     """

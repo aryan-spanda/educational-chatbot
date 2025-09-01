@@ -1,0 +1,55 @@
+# docker-compose.dev.yml
+# Development-specific compose file with hot reloading and development tools
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  frontend-dev:
+    build: 
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      target: builder  # Use the builder stage for development
+    container_name: chatbot-frontend-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true  # Enable hot reloading in Docker
+    volumes:
+      - ./src/frontend/src:/app/src
+      - ./src/frontend/public:/app/public
+      - /app/node_modules  # Anonymous volume to preserve node_modules
+    command: npm start
+    networks:
+      - chatbot-net
+    depends_on:
+      - backend
+
+  backend-dev:
+    build: 
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: chatbot-backend-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - DATABASE_URL=postgresql://chatbot_user:chatbot_pass@postgres:5432/educational_chatbot_dev
+    volumes:
+      - ./src/backend:/app
+      - /app/__pycache__  # Exclude cache
+    command: uvicorn main_api:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - chatbot-net
+    depends_on:
+      - postgres
+      - redis
+
+networks:
+  chatbot-net:
+    external: true
+    name: educational-chatbot-network

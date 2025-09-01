@@ -1,0 +1,76 @@
+# Development environment values
+# Minimal resources for development and testing
+
+app:
+  name: educational-chatbot-dev
+
+frontend:
+  replicaCount: 1
+  image:
+    tag: "main-dev"
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  autoscaling:
+    enabled: false
+  env:
+    - name: REACT_APP_API_URL
+      value: "http://educational-chatbot-backend-dev:8000"
+    - name: NODE_ENV
+      value: "development"
+
+backend:
+  replicaCount: 1
+  image:
+    tag: "main-dev"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+  env:
+    - name: PYTHONPATH
+      value: "/app"
+    - name: ENVIRONMENT
+      value: "development"
+    - name: LOG_LEVEL
+      value: "DEBUG"
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: educational-chatbot-secrets-dev
+          key: database-url
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: educational-chatbot-secrets-dev
+          key: openai-api-key
+
+storage:
+  size: "5Gi"
+
+ingress:
+  enabled: true
+  host: "chatbot-dev.spandaai.local"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"  # HTTP only for dev
+  tls:
+    enabled: false
+
+secrets:
+  name: "educational-chatbot-secrets-dev"
+
+monitoring:
+  enabled: false  # Disable monitoring in dev
+
+networkPolicy:
+  enabled: false  # Disable network policies in dev for easier debugging

@@ -1,0 +1,190 @@
+# =====================================================================
+# Platform Requirements for Educational Chatbot Application
+# =====================================================================
+# This file declares the application's infrastructure needs, target
+# environments, and Helm chart location. It is used by the automated
+# onboarding script to generate ArgoCD deployment manifests.
+# =====================================================================
+
+# Section 1: Application Identity
+# ---------------------------------------------------------------------
+app:
+  name: "educational-chatbot"
+  repoURL: "https://github.com/aryan-spanda/educational-chatbot.git"
+  chartPath: "deploy/helm"
+  type: "fullstack"
+  team: "ai-development-team"
+  tenant: "educational-chatbot"  # Maps to ArgoCD project and tenant namespaces
+
+# Section 1.1: Microservices Configuration
+# ---------------------------------------------------------------------
+# The platform will automatically discover microservices by scanning src/ directory
+# Auto-discovery will find all src/*/Dockerfile patterns
+microservices:
+  - name: "frontend"
+    dockerfile: "src/frontend/Dockerfile"
+    port: 3000
+    description: "React-based chatbot frontend interface"
+  - name: "backend"
+    dockerfile: "src/backend/Dockerfile"
+    port: 8000
+    description: "Python FastAPI backend with AI/ML capabilities"
+  
+# Section 1.2: Container Registry Configuration
+# ---------------------------------------------------------------------
+container:
+  registry: "docker.io"
+  organization: "aryanpola"
+  image: "educational-chatbot"
+
+# Section 2.1: Target Environments
+# ---------------------------------------------------------------------
+environments:
+  - dev
+  - staging
+  - production
+
+# Section 2.2: GitOps Configuration
+# ---------------------------------------------------------------------
+gitops:
+  targetBranch: "main"
+  tagPattern: "^main-[0-9a-f]{7,8}$"
+  updateStrategy: "newest-build"
+
+# Section 2.3: CI/CD Configuration
+# ---------------------------------------------------------------------
+cicd:
+  # Docker registry configuration
+  registry_host: "docker.io"                    
+  image_namespace: "aryanpola"  
+  
+  # Source code configuration  
+  source_directory: "src/"                       
+  
+  # Deployment configuration
+  deployment_branches:                           
+    - "main"
+    - "develop" 
+    - "staging"
+  
+  # Registry authentication (reference to secrets)
+  registry_credentials:
+    username_secret: "DOCKERHUB_USERNAME"        
+    password_secret: "DOCKERHUB_TOKEN"           
+  
+  # Image tagging strategy
+  tagging_strategy:
+    type: "sha-based"                            
+    format: "{service}-{sha}"                    
+    include_latest: false                        
+  
+  # Environment mapping (branch to environment)
+  environment_mapping:
+    main: "production"
+    develop: "dev"
+    staging: "staging"
+
+# Section 3: Platform Module Requirements
+# ---------------------------------------------------------------------
+platform:
+  modules:
+    # Frontend requirements
+    frontend:
+      external_load_balancer: true      # Enable public access to chatbot
+      ssl_termination: true             # Enable HTTPS
+      cdn: false                        # Disable CDN for now
+      waf: true                         # Enable Web Application Firewall
+      
+    # Backend requirements  
+    backend:
+      internal_load_balancer: true      # Enable internal networking
+      external_api_access: true         # Enable external API access
+      monitoring: true                  # Enable observability
+      gpu_support: false                # No GPU required for basic deployment
+      
+    # Database requirements
+    database:
+      enabled: true
+      type: "postgresql"                # For user sessions and chat history
+      persistent_storage: true
+      backup_enabled: true
+      
+    # Storage requirements
+    storage:
+      enabled: true
+      type: "persistent"                # For FAISS index and document storage
+      size: "10Gi"
+      
+    # AI/ML specific requirements
+    ai_ml:
+      enabled: true
+      model_serving: false              # Using external APIs initially
+      vector_database: true             # For FAISS index
+      text_processing: true
+      
+    # Security requirements
+    security:
+      secrets_management: true          # For API keys
+      network_policies: true
+      pod_security: true
+      
+    # Monitoring and observability
+    monitoring:
+      prometheus: true
+      grafana: true
+      logging: true
+      tracing: false                    # Disable for initial deployment
+      
+    # Networking
+    networking:
+      service_mesh: false               # Disable for simplicity
+      ingress_controller: true
+      dns: true
+
+# Section 4: Environment-specific Overrides
+# ---------------------------------------------------------------------
+environments_config:
+  dev:
+    replicas:
+      frontend: 1
+      backend: 1
+    resources:
+      frontend:
+        cpu: "100m"
+        memory: "128Mi"
+      backend:
+        cpu: "200m"
+        memory: "512Mi"
+    storage:
+      size: "5Gi"
+      
+  staging:
+    replicas:
+      frontend: 2
+      backend: 2
+    resources:
+      frontend:
+        cpu: "200m"
+        memory: "256Mi"
+      backend:
+        cpu: "500m"
+        memory: "1Gi"
+    storage:
+      size: "10Gi"
+      
+  production:
+    replicas:
+      frontend: 3
+      backend: 3
+    resources:
+      frontend:
+        cpu: "300m"
+        memory: "512Mi"
+      backend:
+        cpu: "1000m"
+        memory: "2Gi"
+    storage:
+      size: "20Gi"
+    autoscaling:
+      enabled: true
+      max_replicas: 10

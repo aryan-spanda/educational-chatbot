@@ -1,0 +1,85 @@
+# Staging environment values
+# Production-like setup for pre-release testing
+
+app:
+  name: educational-chatbot-staging
+
+frontend:
+  replicaCount: 2
+  image:
+    tag: "staging-latest"
+  resources:
+    limits:
+      cpu: 300m
+      memory: 512Mi
+    requests:
+      cpu: 150m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+  env:
+    - name: REACT_APP_API_URL
+      value: "https://chatbot-api-staging.spandaai.com"
+    - name: NODE_ENV
+      value: "staging"
+
+backend:
+  replicaCount: 2
+  image:
+    tag: "staging-latest"
+  resources:
+    limits:
+      cpu: 800m
+      memory: 1.5Gi
+    requests:
+      cpu: 400m
+      memory: 768Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+  env:
+    - name: PYTHONPATH
+      value: "/app"
+    - name: ENVIRONMENT
+      value: "staging"
+    - name: LOG_LEVEL
+      value: "INFO"
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: educational-chatbot-secrets-staging
+          key: database-url
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: educational-chatbot-secrets-staging
+          key: openai-api-key
+
+storage:
+  size: "10Gi"
+
+ingress:
+  enabled: true
+  host: "chatbot-staging.spandaai.com"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+  tls:
+    enabled: true
+    secretName: "educational-chatbot-staging-tls"
+
+secrets:
+  name: "educational-chatbot-secrets-staging"
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+
+networkPolicy:
+  enabled: true

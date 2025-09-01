@@ -1,0 +1,221 @@
+# Educational Chatbot - Unified Docker Compose for Local Development & Testing
+# This file orchestrates all microservices for development, testing, and local deployment
+# Usage: 
+#   Development: docker-compose up
+#   With dev tools: docker-compose --profile tools up
+#   Production-like: docker-compose --profile production up
+
+version: '3.8'
+
+services:
+  # --- Frontend Service (React Development/Production) ---
+  frontend:
+    build: 
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-builder}  # Use 'builder' for dev, 'production' for prod
+    container_name: chatbot-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8000}
+      - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-development}
+      - CHOKIDAR_USEPOLLING=${CHOKIDAR_USEPOLLING:-true}
+    env_file:
+      - .env
+    volumes:
+      # Development: mount source for hot reloading
+      - ./src/frontend/src:/app/src:delegated
+      - ./src/frontend/public:/app/public:delegated
+      - /app/node_modules  # Preserve node_modules
+    command: ${FRONTEND_COMMAND:-npm start}
+    networks:
+      - chatbot-net
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - ""  # Always included
+      - development
+      - production
+
+  # --- Backend Service (Python FastAPI) ---
+  backend:
+    build: 
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: chatbot-backend
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - PYTHONPATH=${PYTHONPATH:-/app}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://chatbot_user:chatbot_pass@postgres:5432/educational_chatbot}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data:delegated  # Mount data directory
+      - chatbot-storage:/app/data/faiss_index  # Persistent FAISS index
+      # Development: mount source for hot reloading
+      - ./src/backend:/app:delegated
+      - /app/__pycache__  # Exclude cache
+    command: ${BACKEND_COMMAND:-uvicorn main_api:app --host 0.0.0.0 --port 8000 --reload}
+    networks:
+      - chatbot-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - ""  # Always included
+      - development
+      - production
+
+  # --- PostgreSQL Database ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: chatbot-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-educational_chatbot}
+      - POSTGRES_USER=${POSTGRES_USER:-chatbot_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-chatbot_pass}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    env_file:
+      - .env
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - chatbot-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chatbot_user} -d ${POSTGRES_DB:-educational_chatbot}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - ""  # Always included
+      - development
+      - production
+
+  # --- Redis Cache ---
+  redis:
+    image: redis:7-alpine
+    container_name: chatbot-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --appendfsync everysec
+    networks:
+      - chatbot-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - ""  # Always included
+      - development
+      - production
+
+  # --- Development & Testing Tools ---
+  
+  # Database Administration Tool
+  adminer:
+    image: adminer:4.8.1
+    container_name: chatbot-adminer
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+      - ADMINER_DESIGN=hydra
+    networks:
+      - chatbot-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - tools
+      - development
+
+  # Redis Management Tool
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: chatbot-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=admin
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    networks:
+      - chatbot-net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - tools
+      - development
+
+  # --- Production Services ---
+  
+  # Nginx Reverse Proxy (Production-like setup)
+  nginx:
+    image: nginx:alpine
+    container_name: chatbot-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - chatbot-net
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    profiles:
+      - production
+      - staging
+
+# --- Named volumes for persistent data ---
+volumes:
+  postgres-data:
+    driver: local
+    name: chatbot-postgres-data
+  redis-data:
+    driver: local
+    name: chatbot-redis-data
+  chatbot-storage:
+    driver: local
+    name: chatbot-faiss-storage
+
+# --- Networks ---
+networks:
+  chatbot-net:
+    driver: bridge
+    name: educational-chatbot-network
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

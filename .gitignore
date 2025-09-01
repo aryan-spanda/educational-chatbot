@@ -1,10 +1,18 @@
 # Generic System Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # Log files
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+logs
+*.log
 
 # Environment Variables - IMPORTANT
 # This will ignore .env files in any directory (e.g., /backend/.env)
@@ -21,15 +29,105 @@ node_modules/
 /coverage
 .pnp
 .pnp.js
+build/
+dist/
 
 # Python / Backend
 # Ignores Python cache folders wherever they are
 **/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nyc_output
+
+# IDEs
+.idea/
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Docker
+.dockerignore
+
+# FAISS index files
 # Ignores the faiss_index directory inside the backend
 backend/faiss_index/
+src/backend/faiss_index/
+faiss_index/
+*.index
+
+# Data files
+data/
+data_old/
+src/backend/data/
+*.pdf
+*.docx
+*.txt
+uploads/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Kubernetes and Helm
+charts/
+*.tgz
+secrets/
+*.secret
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
 
 # User-specified files and folders to ignore
-/data/
-/data_old/
 /commands.txt
 /backend/main.py
+
+# Platform specific
+platform-generated/
+.argocd/
+
+# Local development overrides
+docker-compose.override.yml
+.env.override

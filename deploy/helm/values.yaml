@@ -1,0 +1,241 @@
+# Base values - environment agnostic defaults
+# Educational Chatbot Application
+
+# Application configuration
+app:
+  name: educational-chatbot
+  version: "1.0.0"
+  # Deployment mode: "microservices" for separate pods
+  deploymentMode: "microservices"
+
+# Frontend service configuration (React)
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: aryanpola/educational-chatbot-frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+  resources:
+    limits:
+      cpu: 300m
+      memory: 512Mi
+    requests:
+      cpu: 150m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  env:
+    - name: REACT_APP_API_URL
+      value: "http://educational-chatbot-backend:8000"
+    - name: NODE_ENV
+      value: "production"
+
+# Backend service configuration (Python FastAPI)
+backend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: aryanpola/educational-chatbot-backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 75
+  env:
+    - name: PYTHONPATH
+      value: "/app"
+    - name: ENVIRONMENT
+      value: "production"
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: educational-chatbot-secrets
+          key: database-url
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: educational-chatbot-secrets
+          key: openai-api-key
+  # Health checks
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# Database configuration (PostgreSQL)
+database:
+  enabled: true
+  type: postgresql
+  # External database connection (managed by platform)
+  external: true
+  host: "postgresql-service"
+  port: 5432
+  database: "educational_chatbot"
+  username: "chatbot_user"
+  # Password stored in secrets
+
+# Persistent storage for FAISS index and documents
+storage:
+  enabled: true
+  storageClass: "standard"
+  size: "10Gi"
+  accessMode: "ReadWriteOnce"
+  mountPath: "/app/data"
+
+# Redis for caching (optional)
+redis:
+  enabled: false
+  host: "redis-service"
+  port: 6379
+
+# Global configuration
+replicaCount: 2
+image:
+  repository: spandaai/educational-chatbot
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false  # Set to false for AI/ML workloads that need temp files
+  runAsNonRoot: true
+  runAsUser: 1001
+
+# Default service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+# Ingress configuration (disabled by default - enabled per environment)
+ingress:
+  enabled: false
+  className: "nginx"
+  host: ""
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  tls:
+    enabled: true
+    secretName: ""
+
+# Default resource limits
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selection
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  # Prefer to spread pods across different nodes
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - educational-chatbot
+        topologyKey: kubernetes.io/hostname
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /metrics
+    port: http
+
+# Network policies
+networkPolicy:
+  enabled: true
+  ingress:
+    enabled: true
+  egress:
+    enabled: true
+
+# Secrets (will be created by platform)
+secrets:
+  create: false  # Managed by platform
+  name: "educational-chatbot-secrets"
+
+# ConfigMaps
+configMaps:
+  create: true
+  data:
+    app_name: "Educational Chatbot"
+    log_level: "INFO"
+    max_file_size: "10MB"
+    supported_formats: "pdf,txt,docx"

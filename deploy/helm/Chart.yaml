@@ -1,0 +1,26 @@
+apiVersion: v2
+name: educational-chatbot
+description: A Helm chart for Educational Chatbot Application
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - spanda
+  - chatbot
+  - education
+  - ai
+  - platform
+home: https://github.com/spandaai/educational-chatbot
+sources:
+  - https://github.com/spandaai/educational-chatbot
+maintainers:
+  - name: AI Development Team
+    email: ai-team@spandaai.com
+  - name: Platform Team
+    email: platform@spandaai.com
+
+dependencies: []
+
+annotations:
+  category: "AI/ML"
+  licenses: "MIT"

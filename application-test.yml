@@ -1,0 +1,154 @@
+# =====================================================================
+# Educational Chatbot Test Configuration
+# =====================================================================
+# This file is maintained by the APPLICATION DEVELOPER
+# It tells the platform CI/CD pipeline how to run tests for this app
+# =====================================================================
+
+app:
+  name: "educational-chatbot"
+  type: "fullstack"  # AI-powered fullstack application
+
+# Test Commands (Provided by App Developer)
+# ---------------------------------------------------------
+tests:
+  # Frontend Tests (React)
+  frontend:
+    enabled: true
+    working_directory: "src/frontend"
+    setup_commands:
+      - "npm ci"
+    test_command: "npm test -- --coverage --watchAll=false"
+    coverage_threshold: 75
+    test_types:
+      - "unit"
+      - "integration"
+      - "component"
+    
+  # Backend Tests (Python/FastAPI)
+  backend:
+    enabled: true
+    working_directory: "src/backend"
+    setup_commands:
+      - "pip install -r requirements.txt"
+      - "pip install pytest pytest-cov pytest-asyncio"
+    test_command: "python -m pytest --cov=. --cov-report=xml --cov-report=html"
+    coverage_threshold: 80
+    test_types:
+      - "unit"
+      - "integration"
+      - "api"
+      - "ai_model"
+
+# AI/ML Specific Tests
+# ---------------------------------------------------------
+ai_tests:
+  enabled: true
+  model_validation:
+    enabled: true
+    test_data_path: "data/test_samples/"
+    accuracy_threshold: 0.85
+  
+  document_processing:
+    enabled: true
+    test_files:
+      - "data/sample.pdf"
+      - "data/sample.txt"
+    
+  vector_search:
+    enabled: true
+    similarity_threshold: 0.7
+
+# Quality Gates
+# ---------------------------------------------------------
+quality_gates:
+  code_coverage:
+    frontend_minimum: 75
+    backend_minimum: 80
+  
+  security_scan:
+    enabled: true
+    fail_on_high_severity: true
+    fail_on_critical_severity: true
+  
+  performance_tests:
+    enabled: true
+    response_time_threshold: 2000  # milliseconds
+    concurrent_users: 50
+
+# Environment Setup for Tests
+# ---------------------------------------------------------
+test_environment:
+  database:
+    type: "sqlite"  # Use SQLite for tests instead of PostgreSQL
+    in_memory: true
+  
+  external_apis:
+    mock_openai: true  # Mock OpenAI API for tests
+    mock_enabled: true
+  
+  storage:
+    use_temp_directory: true
+
+# Integration Tests
+# ---------------------------------------------------------
+integration_tests:
+  enabled: true
+  test_scenarios:
+    - name: "document_upload_and_query"
+      description: "Test full document upload and query workflow"
+      timeout: 300
+    
+    - name: "chat_conversation_flow"
+      description: "Test multi-turn conversation capabilities"
+      timeout: 180
+    
+    - name: "error_handling"
+      description: "Test error scenarios and recovery"
+      timeout: 120
+
+# Performance Tests
+# ---------------------------------------------------------
+performance_tests:
+  enabled: false  # Disabled by default, enable for staging/production
+  load_test:
+    duration: "5m"
+    virtual_users: 10
+    ramp_up: "30s"
+  
+  stress_test:
+    enabled: false
+    max_users: 100
+    duration: "10m"
+
+# Post-deployment Tests
+# ---------------------------------------------------------
+smoke_tests:
+  enabled: true
+  endpoints:
+    - url: "/health"
+      expected_status: 200
+    - url: "/ready"
+      expected_status: 200
+    - url: "/api/docs"
+      expected_status: 200
+  
+  frontend_checks:
+    - url: "/"
+      check_type: "page_load"
+      timeout: 10
+    - url: "/"
+      check_type: "elements_present"
+      elements: ["#chat-interface", "#upload-button"]
+
+# Notification Settings
+# ---------------------------------------------------------
+notifications:
+  on_test_failure:
+    slack_channel: "#ai-development"
+    email_recipients:
+      - "ai-team@spandaai.com"
+  
+  on_quality_gate_failure:
+    create_github_issue: true
+    assign_to_team: "ai-development-team"

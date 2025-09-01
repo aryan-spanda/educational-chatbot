@@ -1,0 +1,25 @@
+# declarative/kong.yml
+
+_format_version: "3.0"
+
+services:
+  - name: spanda-rag-api-service
+    url: http://fastapi:8000
+    routes:
+      - name: spanda-rag-api-route
+        paths:
+          - /api
+        strip_path: true
+
+consumers:
+  - username: rag-client
+    keyauth_credentials:
+      - key: rag_backend
+
+plugins:
+  - name: key-auth
+    consumer: rag-client
+    config:
+      key_names:
+        - apikey
+      run_on: first

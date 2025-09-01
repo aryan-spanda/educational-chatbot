@@ -1,0 +1,68 @@
+{{- if .Values.ingress.enabled -}}
+{{- $fullName := include "educational-chatbot.fullname" . -}}
+{{- $frontendFullName := include "educational-chatbot.frontend.fullname" . -}}
+{{- $backendFullName := include "educational-chatbot.backend.fullname" . -}}
+{{- $svcPort := .Values.frontend.service.port -}}
+{{- $backendSvcPort := .Values.backend.service.port -}}
+{{- if and .Values.ingress.className (not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class")) }}
+  {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "educational-chatbot.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName | default (printf "%s-tls" $fullName) }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          # Frontend routes
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $frontendFullName }}
+                port:
+                  number: {{ $svcPort }}
+          # API routes to backend
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $backendFullName }}
+                port:
+                  number: {{ $backendSvcPort }}
+          # Health check endpoints
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $backendFullName }}
+                port:
+                  number: {{ $backendSvcPort }}
+          # Metrics endpoint (if monitoring enabled)
+          {{- if .Values.monitoring.enabled }}
+          - path: /metrics
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $backendFullName }}
+                port:
+                  number: {{ $backendSvcPort }}
+          {{- end }}
+{{- end }}

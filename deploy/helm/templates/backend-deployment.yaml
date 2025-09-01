@@ -1,0 +1,114 @@
+{{- if .Values.backend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "educational-chatbot.backend.fullname" . }}
+  labels:
+    {{- include "educational-chatbot.backend.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.backend.autoscaling.enabled }}
+  replicas: {{ .Values.backend.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "educational-chatbot.backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "educational-chatbot.backend.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "educational-chatbot.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-storage
+          image: busybox:1.35
+          command: ['sh', '-c']
+          args:
+            - |
+              if [ ! -d {{ .Values.storage.mountPath }}/faiss_index ]; then
+                mkdir -p {{ .Values.storage.mountPath }}/faiss_index
+                chmod 755 {{ .Values.storage.mountPath }}/faiss_index
+              fi
+              if [ ! -d {{ .Values.storage.mountPath }}/documents ]; then
+                mkdir -p {{ .Values.storage.mountPath }}/documents
+                chmod 755 {{ .Values.storage.mountPath }}/documents
+              fi
+              chown -R 1001:1001 {{ .Values.storage.mountPath }}
+          volumeMounts:
+            {{- if .Values.storage.enabled }}
+            - name: storage
+              mountPath: {{ .Values.storage.mountPath }}
+            {{- end }}
+          securityContext:
+            runAsUser: 0  # Need root to change ownership
+      containers:
+        - name: backend
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.service.targetPort }}
+              protocol: TCP
+          {{- if .Values.backend.env }}
+          env:
+            {{- toYaml .Values.backend.env | nindent 12 }}
+          {{- end }}
+          {{- if .Values.backend.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.backend.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.backend.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.backend.readinessProbe | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.storage.enabled }}
+            - name: storage
+              mountPath: {{ .Values.storage.mountPath }}
+            {{- end }}
+            {{- if .Values.configMaps.create }}
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.storage.enabled }}
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ include "educational-chatbot.storage.name" . }}
+        {{- end }}
+        {{- if .Values.configMaps.create }}
+        - name: config
+          configMap:
+            name: {{ include "educational-chatbot.configmap.name" . }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

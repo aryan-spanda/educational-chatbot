@@ -1,0 +1,138 @@
+{{- if .Values.networkPolicy.enabled }}
+# Frontend Network Policy
+{{- if .Values.frontend.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "educational-chatbot.frontend.fullname" . }}
+  labels:
+    {{- include "educational-chatbot.frontend.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "educational-chatbot.frontend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  {{- if .Values.networkPolicy.ingress.enabled }}
+  # Allow ingress from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: {{ .Values.frontend.service.targetPort }}
+  # Allow ingress from within the same namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: {{ .Release.Namespace }}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.frontend.service.targetPort }}
+  {{- end }}
+  egress:
+  {{- if .Values.networkPolicy.egress.enabled }}
+  # Allow egress to backend services
+  - to:
+    - podSelector:
+        matchLabels:
+          {{- include "educational-chatbot.backend.selectorLabels" . | nindent 10 }}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.backend.service.targetPort }}
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow egress to external services (API calls)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+  {{- end }}
+---
+{{- end }}
+
+# Backend Network Policy
+{{- if .Values.backend.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "educational-chatbot.backend.fullname" . }}
+  labels:
+    {{- include "educational-chatbot.backend.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "educational-chatbot.backend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  {{- if .Values.networkPolicy.ingress.enabled }}
+  # Allow ingress from frontend
+  - from:
+    - podSelector:
+        matchLabels:
+          {{- include "educational-chatbot.frontend.selectorLabels" . | nindent 10 }}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.backend.service.targetPort }}
+  # Allow ingress from ingress controller (for direct API access)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: {{ .Values.backend.service.targetPort }}
+  # Allow ingress from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: {{ .Values.backend.service.targetPort }}
+  {{- end }}
+  egress:
+  {{- if .Values.networkPolicy.egress.enabled }}
+  # Allow egress to database
+  {{- if .Values.database.enabled }}
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: database
+    ports:
+    - protocol: TCP
+      port: {{ .Values.database.port }}
+  {{- end }}
+  # Allow egress to Redis (if enabled)
+  {{- if .Values.redis.enabled }}
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: redis
+    ports:
+    - protocol: TCP
+      port: {{ .Values.redis.port }}
+  {{- end }}
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow egress to external APIs (OpenAI, etc.)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  {{- end }}
+{{- end }}
+{{- end }}

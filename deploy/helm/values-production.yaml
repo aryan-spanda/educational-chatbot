@@ -1,0 +1,130 @@
+# Production environment values
+# High availability and performance configuration
+
+app:
+  name: educational-chatbot-production
+
+frontend:
+  replicaCount: 3
+  image:
+    tag: "main-latest"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 768Mi
+    requests:
+      cpu: 250m
+      memory: 384Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 60
+    targetMemoryUtilizationPercentage: 70
+  env:
+    - name: REACT_APP_API_URL
+      value: "https://chatbot-api.spandaai.com"
+    - name: NODE_ENV
+      value: "production"
+
+backend:
+  replicaCount: 3
+  image:
+    tag: "main-latest"
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 65
+    targetMemoryUtilizationPercentage: 75
+  env:
+    - name: PYTHONPATH
+      value: "/app"
+    - name: ENVIRONMENT
+      value: "production"
+    - name: LOG_LEVEL
+      value: "INFO"
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: educational-chatbot-secrets-production
+          key: database-url
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: educational-chatbot-secrets-production
+          key: openai-api-key
+    - name: REDIS_URL
+      valueFrom:
+        secretKeyRef:
+          name: educational-chatbot-secrets-production
+          key: redis-url
+
+storage:
+  size: "20Gi"
+  storageClass: "fast-ssd"  # Use high-performance storage
+
+redis:
+  enabled: true  # Enable Redis caching in production
+
+ingress:
+  enabled: true
+  host: "chatbot.spandaai.com"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  tls:
+    enabled: true
+    secretName: "educational-chatbot-production-tls"
+
+secrets:
+  name: "educational-chatbot-secrets-production"
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+
+networkPolicy:
+  enabled: true
+
+# Production-specific affinity rules
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - educational-chatbot
+      topologyKey: kubernetes.io/hostname
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      preference:
+        matchExpressions:
+        - key: node-type
+          operator: In
+          values:
+          - high-memory
+
+# Production resource limits
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi

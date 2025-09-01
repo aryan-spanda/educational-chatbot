@@ -1,0 +1,315 @@
+# Universal CI/CD Workflow Template for Educational Chatbot Microservices
+# This template dynamically reads configuration from platform-requirements.yml
+# Works for applications with any number of microservices and any configuration
+
+name: Build and Deploy Educational Chatbot
+
+on:
+  push:
+    branches: [ main, develop, staging ]  # Will be filtered by platform-requirements.yml
+  pull_request:
+    branches: [ main ]
+
+env:
+  # Default values - will be overridden by platform-requirements.yml
+  REGISTRY: docker.io
+  IMAGE_NAMESPACE: ""
+  SOURCE_DIRECTORY: src/
+  CONFIG_FILE: platform-requirements.yml
+
+jobs:
+  # Job 1: Read configuration from platform-requirements.yml
+  config:
+    runs-on: ubuntu-latest
+    outputs:
+      registry_host: ${{ steps.read-config.outputs.registry_host }}
+      image_namespace: ${{ steps.read-config.outputs.image_namespace }}
+      source_directory: ${{ steps.read-config.outputs.source_directory }}
+      deployment_branches: ${{ steps.read-config.outputs.deployment_branches }}
+      registry_username_secret: ${{ steps.read-config.outputs.registry_username_secret }}
+      registry_password_secret: ${{ steps.read-config.outputs.registry_password_secret }}
+      tagging_format: ${{ steps.read-config.outputs.tagging_format }}
+      should_deploy: ${{ steps.check-deployment.outputs.should_deploy }}
+      target_environment: ${{ steps.check-deployment.outputs.target_environment }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install yq
+      run: |
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq
+        
+    - name: Read platform requirements
+      id: read-config
+      run: |
+        # Read CI/CD configuration from platform-requirements.yml
+        registry_host=$(yq e '.cicd.registry_host // "docker.io"' $CONFIG_FILE)
+        image_namespace=$(yq e '.cicd.image_namespace // env(GITHUB_REPOSITORY_OWNER)' $CONFIG_FILE)
+        source_directory=$(yq e '.cicd.source_directory // "src/"' $CONFIG_FILE)
+        deployment_branches=$(yq e '.cicd.deployment_branches | @json' $CONFIG_FILE)
+        registry_username_secret=$(yq e '.cicd.registry_credentials.username_secret // "DOCKERHUB_USERNAME"' $CONFIG_FILE)
+        registry_password_secret=$(yq e '.cicd.registry_credentials.password_secret // "DOCKERHUB_TOKEN"' $CONFIG_FILE)
+        tagging_format=$(yq e '.cicd.tagging_strategy.format // "{service}-{sha}"' $CONFIG_FILE)
+        
+        echo "registry_host=$registry_host" >> $GITHUB_OUTPUT
+        echo "image_namespace=$image_namespace" >> $GITHUB_OUTPUT
+        echo "source_directory=$source_directory" >> $GITHUB_OUTPUT
+        echo "deployment_branches=$deployment_branches" >> $GITHUB_OUTPUT
+        echo "registry_username_secret=$registry_username_secret" >> $GITHUB_OUTPUT
+        echo "registry_password_secret=$registry_password_secret" >> $GITHUB_OUTPUT
+        echo "tagging_format=$tagging_format" >> $GITHUB_OUTPUT
+        
+        echo "Configuration loaded:"
+        echo "  Registry: $registry_host"
+        echo "  Namespace: $image_namespace"
+        echo "  Source Dir: $source_directory"
+        echo "  Deployment Branches: $deployment_branches"
+        
+    - name: Check deployment conditions
+      id: check-deployment
+      run: |
+        # Check if current branch should trigger deployment
+        current_branch=${GITHUB_REF#refs/heads/}
+        deployment_branches='${{ steps.read-config.outputs.deployment_branches }}'
+        
+        should_deploy="false"
+        target_environment="none"
+        
+        if echo "$deployment_branches" | jq -r '.[]' | grep -q "^$current_branch$"; then
+          should_deploy="true"
+          # Get environment mapping
+          target_environment=$(yq e ".cicd.environment_mapping.\"$current_branch\" // \"$current_branch\"" $CONFIG_FILE)
+        fi
+        
+        echo "should_deploy=$should_deploy" >> $GITHUB_OUTPUT
+        echo "target_environment=$target_environment" >> $GITHUB_OUTPUT
+        echo "Branch '$current_branch' -> Deploy: $should_deploy, Environment: $target_environment"
+
+  # Job 2: Discover microservices dynamically
+  discover:
+    needs: config
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.find-services.outputs.services }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Find microservices
+      id: find-services
+      run: |
+        source_dir="${{ needs.config.outputs.source_directory }}"
+        echo "Scanning for Dockerfiles in: $source_dir"
+        
+        services="[]"
+        
+        # Find all directories with Dockerfiles in the source directory
+        for dockerfile in $(find "$source_dir" -name "Dockerfile" -type f); do
+          # Get the directory name (service name)
+          service_dir=$(dirname "$dockerfile")
+          service_name=$(basename "$service_dir")
+          
+          # Build the service JSON object
+          service_json=$(jq -n \
+            --arg name "$service_name" \
+            --arg dockerfile "$dockerfile" \
+            --arg context "$service_dir" \
+            '{name: $name, dockerfile: $dockerfile, context: $context}')
+          
+          # Add to services array
+          services=$(echo "$services" | jq --argjson service "$service_json" '. + [$service]')
+          
+          echo "Found service: $service_name (Dockerfile: $dockerfile)"
+        done
+        
+        echo "services=$services" >> $GITHUB_OUTPUT
+        echo "Discovered services:"
+        echo "$services" | jq .
+
+  # Job 3: Build and push Docker images for each microservice
+  build:
+    needs: [config, discover]
+    runs-on: ubuntu-latest
+    if: needs.discover.outputs.services != '[]'
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.discover.outputs.services) }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ needs.config.outputs.registry_host }}
+        username: ${{ secrets[needs.config.outputs.registry_username_secret] }}
+        password: ${{ secrets[needs.config.outputs.registry_password_secret] }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ needs.config.outputs.registry_host }}/${{ needs.config.outputs.image_namespace }}/educational-chatbot-${{ matrix.service.name }}
+        tags: |
+          type=ref,event=branch,suffix=-{{sha}}
+          type=ref,event=pr,suffix=-{{sha}}
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ matrix.service.context }}
+        file: ${{ matrix.service.dockerfile }}
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+        
+    - name: Output image details
+      run: |
+        echo "Built and pushed image for service: ${{ matrix.service.name }}"
+        echo "Image tags: ${{ steps.meta.outputs.tags }}"
+        echo "Image digest: ${{ steps.meta.outputs.digest }}"
+
+  # Job 4: Security scanning
+  security:
+    needs: [config, discover, build]
+    runs-on: ubuntu-latest
+    if: needs.discover.outputs.services != '[]'
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.discover.outputs.services) }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ needs.config.outputs.registry_host }}/${{ needs.config.outputs.image_namespace }}/educational-chatbot-${{ matrix.service.name }}:${{ github.ref_name }}-${{ github.sha }}
+        format: 'sarif'
+        output: 'trivy-results-${{ matrix.service.name }}.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results-${{ matrix.service.name }}.sarif'
+
+  # Job 5: Deploy to target environment (if conditions are met)
+  deploy:
+    needs: [config, discover, build, security]
+    runs-on: ubuntu-latest
+    if: needs.config.outputs.should_deploy == 'true' && needs.discover.outputs.services != '[]'
+    environment: ${{ needs.config.outputs.target_environment }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Update Helm values with new image tags
+      run: |
+        # Install yq for YAML processing
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq
+        
+        # Process each service and update Helm values
+        services='${{ needs.discover.outputs.services }}'
+        target_env="${{ needs.config.outputs.target_environment }}"
+        
+        echo "Updating Helm values for environment: $target_env"
+        
+        # Update values file for the target environment
+        values_file="deploy/helm/values-${target_env}.yaml"
+        if [ ! -f "$values_file" ]; then
+          values_file="deploy/helm/values.yaml"
+        fi
+        
+        echo "$services" | jq -c '.[]' | while read -r service; do
+          service_name=$(echo "$service" | jq -r '.name')
+          new_tag="${service_name}-${{ github.sha }}"
+          
+          echo "Updating $service_name image tag to: $new_tag"
+          
+          # Update the image tag in values file
+          yq e -i ".${service_name}.image.tag = \"$new_tag\"" "$values_file"
+        done
+        
+        echo "Updated Helm values:"
+        cat "$values_file"
+        
+    - name: Configure Git
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        
+    - name: Commit and push updated values
+      run: |
+        git add deploy/helm/values*.yaml
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "🚀 Update image tags for ${{ needs.config.outputs.target_environment }} deployment
+          
+          Updated services:
+          $(echo '${{ needs.discover.outputs.services }}' | jq -r '.[].name' | sed 's/^/- /')
+          
+          Commit: ${{ github.sha }}
+          Branch: ${{ github.ref_name }}
+          Environment: ${{ needs.config.outputs.target_environment }}"
+          
+          git push
+        fi
+        
+    - name: Deploy notification
+      run: |
+        echo "🚀 Deployment initiated for educational-chatbot"
+        echo "📦 Environment: ${{ needs.config.outputs.target_environment }}"
+        echo "🔖 Commit: ${{ github.sha }}"
+        echo "🌿 Branch: ${{ github.ref_name }}"
+        echo "🛠️ Services updated:"
+        echo '${{ needs.discover.outputs.services }}' | jq -r '.[].name' | sed 's/^/  - /'
+
+  # Job 6: Notification and summary
+  notify:
+    needs: [config, discover, build, security, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Build Summary
+      run: |
+        echo "## 🤖 Educational Chatbot CI/CD Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.config.outputs.should_deploy }}" == "true" ]; then
+          echo "### ✅ Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ needs.config.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### ℹ️ Build Only" >> $GITHUB_STEP_SUMMARY
+          echo "No deployment triggered for this branch." >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔨 Built Services" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.discover.outputs.services }}" != "[]" ]; then
+          echo '${{ needs.discover.outputs.services }}' | jq -r '.[] | "- **" + .name + "** (from `" + .dockerfile + "`)"' >> $GITHUB_STEP_SUMMARY
+        else
+          echo "No services found to build." >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Job Status" >> $GITHUB_STEP_SUMMARY
+        echo "- **Config**: ${{ needs.config.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Discovery**: ${{ needs.discover.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build**: ${{ needs.build.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Security**: ${{ needs.security.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Deploy**: ${{ needs.deploy.result }}" >> $GITHUB_STEP_SUMMARY

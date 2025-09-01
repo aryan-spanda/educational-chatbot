@@ -1,0 +1,12 @@
+{{- if .Values.configMaps.create }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "educational-chatbot.configmap.name" . }}
+  labels:
+    {{- include "educational-chatbot.labels" . | nindent 4 }}
+data:
+  {{- with .Values.configMaps.data }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}

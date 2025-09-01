@@ -180,4 +180,3 @@ async def ask_question(request: QuestionRequest):
 if __name__ == "__main__":
     # Use uvicorn to run the app. It will be available at http://127.0.0.1:8000
     uvicorn.run(app, host="127.0.0.1", port=8000)
-

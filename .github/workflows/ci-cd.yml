@@ -112,11 +112,11 @@ jobs:
           
           echo "Found service: $service_name (Dockerfile: $dockerfile)"
           
-          # Build the service JSON object
+          # Build the service JSON object with repository root as context
           service_json=$(jq -n \
             --arg name "$service_name" \
-            --arg dockerfile "$dockerfile" \
-            --arg context "$service_dir" \
+            --arg dockerfile "./$dockerfile" \
+            --arg context "." \
             '{name: $name, dockerfile: $dockerfile, context: $context}')
           
           # Add to services array

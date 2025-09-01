@@ -3,11 +3,10 @@
 
 app:
   name: educational-chatbot-production
-
 frontend:
   replicaCount: 3
   image:
-    tag: "main-latest"
+    tag: "frontend-7dec5b790018689ba8072a355d8c8dcd3373ad21"
   resources:
     limits:
       cpu: 500m
@@ -26,11 +25,10 @@ frontend:
       value: "https://chatbot-api.spandaai.com"
     - name: NODE_ENV
       value: "production"
-
 backend:
   replicaCount: 3
   image:
-    tag: "main-latest"
+    tag: "backend-7dec5b790018689ba8072a355d8c8dcd3373ad21"
   resources:
     limits:
       cpu: 2000m
@@ -66,14 +64,11 @@ backend:
         secretKeyRef:
           name: educational-chatbot-secrets-production
           key: redis-url
-
 storage:
   size: "20Gi"
-  storageClass: "fast-ssd"  # Use high-performance storage
-
+  storageClass: "fast-ssd" # Use high-performance storage
 redis:
-  enabled: true  # Enable Redis caching in production
-
+  enabled: true # Enable Redis caching in production
 ingress:
   enabled: true
   host: "chatbot.spandaai.com"
@@ -86,40 +81,35 @@ ingress:
   tls:
     enabled: true
     secretName: "educational-chatbot-production-tls"
-
 secrets:
   name: "educational-chatbot-secrets-production"
-
 monitoring:
   enabled: true
   serviceMonitor:
     enabled: true
     interval: 15s
-
 networkPolicy:
   enabled: true
-
 # Production-specific affinity rules
 affinity:
   podAntiAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
-    - labelSelector:
-        matchExpressions:
-        - key: app.kubernetes.io/name
-          operator: In
-          values:
-          - educational-chatbot
-      topologyKey: kubernetes.io/hostname
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - educational-chatbot
+        topologyKey: kubernetes.io/hostname
   nodeAffinity:
     preferredDuringSchedulingIgnoredDuringExecution:
-    - weight: 100
-      preference:
-        matchExpressions:
-        - key: node-type
-          operator: In
-          values:
-          - high-memory
-
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: node-type
+              operator: In
+              values:
+                - high-memory
 # Production resource limits
 resources:
   limits:

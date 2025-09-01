@@ -18,8 +18,8 @@ RUN groupadd -r appuser && useradd -r -g appuser -u 1001 appuser
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container at /app
-COPY requirements.txt .
+# Copy only requirements first to leverage Docker layer caching
+COPY requirements.txt ./
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt

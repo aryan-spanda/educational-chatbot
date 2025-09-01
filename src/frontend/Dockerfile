@@ -6,14 +6,14 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY ../package*.json ./
+COPY package*.json ./
 
 # Install dependencies
 RUN npm ci --only=production
 
 # Copy source code
-COPY ../src/frontend/public/ ./public/
-COPY ../src/frontend/src/ ./src/
+COPY public/ ./public/
+COPY src/ ./src/
 
 # Build the application
 RUN npm run build
@@ -31,7 +31,7 @@ RUN rm -rf /usr/share/nginx/html/*
 COPY --from=builder /app/build /usr/share/nginx/html
 
 # Copy nginx configuration
-COPY ../src/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Create non-root user
 RUN addgroup -g 1001 -S appuser && \

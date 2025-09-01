@@ -102,6 +102,9 @@ src/backend/data/
 *.pdf
 *.docx
 *.txt
+# Exception: Track requirements.txt files
+!requirements.txt
+!**/requirements.txt
 uploads/
 
 # Temporary files

@@ -24,9 +24,8 @@ COPY requirements.txt .
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
-COPY *.py ./
-COPY faiss_index/ ./faiss_index/
+# Copy all application files and directories
+COPY . ./
 
 # Create necessary directories and set permissions
 RUN mkdir -p /app/data/faiss_index /app/data/documents /tmp && \

@@ -171,10 +171,10 @@ async def root():
     Root endpoint that returns API information and version.
     """
     return {
-        "message": "Spanda RAG API - Auto-Update Demo",
-        "version": "1.1.2",
+        "message": "Spanda RAG API - Full GitOps Workflow",
+        "version": "1.2.0",
         "status": "running",
-        "demo": "Automatic GitOps Updates"
+        "demo": "Complete Automated Deployment"
     }
 
 @app.get("/health")
@@ -182,7 +182,7 @@ async def health_check():
     """
     Health check endpoint for monitoring.
     """
-    return {"status": "healthy", "version": "1.1.2"}
+    return {"status": "healthy", "version": "1.2.0"}
 
 @app.post("/ask/")
 async def ask_question(request: QuestionRequest):

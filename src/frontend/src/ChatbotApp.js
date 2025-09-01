@@ -8,8 +8,8 @@ export default function ChatbotApp() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
 
-  // Version info for GitOps demo - v1.1.2
-  const appVersion = "v1.1.2 - Auto-Update Demo";
+  // Version info for GitOps demo - v1.2.0
+  const appVersion = "v1.2.0 - Full GitOps Workflow";
 
   const courses = [
     { id: 'math101', name: 'Mathematics 101' },

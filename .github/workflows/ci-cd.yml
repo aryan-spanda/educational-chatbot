@@ -110,6 +110,8 @@ jobs:
           service_dir=$(dirname "$dockerfile")
           service_name=$(basename "$service_dir")
           
+          echo "Found service: $service_name (Dockerfile: $dockerfile)"
+          
           # Build the service JSON object
           service_json=$(jq -n \
             --arg name "$service_name" \
@@ -119,11 +121,18 @@ jobs:
           
           # Add to services array
           services=$(echo "$services" | jq --argjson service "$service_json" '. + [$service]')
-          
-          echo "Found service: $service_name (Dockerfile: $dockerfile)"
         done
         
-        echo "services=$services" >> $GITHUB_OUTPUT
+        # Compact the JSON to avoid formatting issues with newlines
+        services_compact=$(echo "$services" | jq -c .)
+        
+        # Use delimiter for multiline output
+        {
+          echo "services<<EOF"
+          echo "$services_compact"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
+        
         echo "Discovered services:"
         echo "$services" | jq .
 
@@ -136,6 +145,13 @@ jobs:
       matrix:
         service: ${{ fromJson(needs.discover.outputs.services) }}
     steps:
+    - name: Debug matrix configuration
+      run: |
+        echo "Service Name: ${{ matrix.service.name }}"
+        echo "Dockerfile: ${{ matrix.service.dockerfile }}"
+        echo "Context: ${{ matrix.service.context }}"
+        echo "Services JSON: ${{ needs.discover.outputs.services }}"
+        
     - name: Checkout code
       uses: actions/checkout@v4
       

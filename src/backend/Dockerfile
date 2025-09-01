@@ -19,13 +19,13 @@ RUN groupadd -r appuser && useradd -r -g appuser -u 1001 appuser
 WORKDIR /app
 
 # Copy only requirements first to leverage Docker layer caching
-COPY requirements.txt ./
+COPY src/backend/requirements.txt ./
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy all application files and directories
-COPY . ./
+COPY src/backend/ ./
 
 # Create necessary directories and set permissions
 RUN mkdir -p /app/data/faiss_index /app/data/documents /tmp && \

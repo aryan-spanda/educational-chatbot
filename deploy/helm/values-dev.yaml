@@ -7,7 +7,7 @@ app:
 frontend:
   replicaCount: 1
   image:
-    tag: "frontend-main-c10d706b9459323655bba01622af73c2eb28d9c8"
+    tag: "frontend-main-22e8ba677cb290739590395bcf32d0b7faba12b5"
   resources:
     limits:
       cpu: 200m
@@ -26,7 +26,7 @@ frontend:
 backend:
   replicaCount: 1
   image:
-    tag: "backend-main-c10d706b9459323655bba01622af73c2eb28d9c8"
+    tag: "backend-main-22e8ba677cb290739590395bcf32d0b7faba12b5"
   resources:
     limits:
       cpu: 500m
@@ -68,6 +68,9 @@ ingress:
 
 secrets:
   name: "educational-chatbot-secrets-dev"
+  create: true
+  databaseUrl: "sqlite:///app/data/educational_chatbot.db"  # SQLite for dev
+  openaiApiKey: "sk-fake-api-key-for-development"  # Placeholder for dev
 
 monitoring:
   enabled: false  # Disable monitoring in dev

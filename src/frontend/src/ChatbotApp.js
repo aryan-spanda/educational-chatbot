@@ -191,8 +191,9 @@ export default function ChatbotApp() {
       <header className="app-header">
         <div className="header-content">
           <BookOpen className="header-icon" />
-          <h1>AI Course Assistant</h1>
+          <h1>AI Course Assistant - Pola Edition</h1>
           <p>Select a course and start chatting with your AI assistant</p>
+          <p className="pola-text">🚀 Pola GitOps Testing - ArgoCD Auto-Update Demo 🚀</p>
           <small className="version-info">{appVersion}</small>
         </div>
       </header>

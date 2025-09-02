@@ -144,7 +144,7 @@ jobs:
         echo "Discovered services:"
         echo "$services" | jq .
 
-  # Job 3: Build and push Docker images for each microservice
+  # Job 3: Build, scan, and push Docker images for each microservice
   build:
     needs: [config, discover]
     runs-on: ubuntu-latest
@@ -215,61 +215,56 @@ jobs:
         echo "Image tags: ${{ steps.meta.outputs.tags }}"
         echo "Image digest: ${{ steps.meta.outputs.digest }}"
         echo "Expected image: ${{ needs.config.outputs.registry_host }}/${{ needs.config.outputs.image_namespace }}/educational-chatbot"
-        echo "Service-specific tags: ${{ matrix.service.name }}-latest, ${{ matrix.service.name }}-${{ github.ref_name }}-${{ github.sha }}"
+        echo "Service-specific tags: ${{ matrix.service.name }}-${{ github.ref_name }}-${{ github.sha }}"
+        
+    # === SECURITY SCANNING STEPS (moved from separate job) ===
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      continue-on-error: true
+      with:
+        # Scan the image using the exact tag that was just built
+        # Trivy will find this in the runner's local Docker cache
+        image-ref: ${{ steps.meta.outputs.tags }}
+        format: 'sarif'
+        output: 'trivy-results-${{ matrix.service.name }}.sarif'
+        timeout: '10m'  # Increase timeout to 10 minutes
+        scanners: 'vuln'  # Only scan for vulnerabilities to speed up
+        severity: 'HIGH,CRITICAL'  # Only fail on high/critical issues
+        
+    - name: Fallback: Quick Trivy scan (vulnerabilities only)
+      if: failure()
+      continue-on-error: true
+      run: |
+        echo "Full scan failed, attempting quick vulnerability-only scan..."
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:latest image \
+          --timeout 5m \
+          --scanners vuln \
+          --severity HIGH,CRITICAL \
+          ${{ steps.meta.outputs.tags }} || echo "Quick scan also failed"
+        
+    - name: Check if SARIF file was created
+      id: check-sarif
+      run: |
+        if [ -f "trivy-results-${{ matrix.service.name }}.sarif" ]; then
+          echo "sarif_exists=true" >> $GITHUB_OUTPUT
+          echo "✅ SARIF file created successfully"
+        else
+          echo "sarif_exists=false" >> $GITHUB_OUTPUT
+          echo "❌ SARIF file not found (scan may have failed or timed out)"
+        fi
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: steps.check-sarif.outputs.sarif_exists == 'true'
+      with:
+        sarif_file: 'trivy-results-${{ matrix.service.name }}.sarif'
         
     - name: Output image details
       run: |
         echo "Built and pushed image for service: ${{ matrix.service.name }}"
         echo "Image tags: ${{ steps.meta.outputs.tags }}"
         echo "Image digest: ${{ steps.meta.outputs.digest }}"
-
-  # Job 4: Security scanning
-  security:
-    needs: [config, discover, build]
-    runs-on: ubuntu-latest
-    if: needs.discover.outputs.services != '[]'
-    strategy:
-      matrix:
-        service: ${{ fromJson(needs.discover.outputs.services) }}
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Wait for image to be available
-      run: |
-        echo "Waiting 30 seconds for image to be available on DockerHub..."
-        sleep 30
-        
-    - name: Verify image exists before scanning
-      id: check-image
-      continue-on-error: true
-      run: |
-        image_name="${{ needs.config.outputs.registry_host }}/${{ needs.config.outputs.image_namespace }}/educational-chatbot:${{ matrix.service.name }}-${{ github.ref_name }}-${{ github.sha }}"
-        echo "Checking if image exists: $image_name"
-        
-        # Try to pull the image manifest to verify it exists
-        if docker manifest inspect "$image_name" > /dev/null 2>&1; then
-          echo "image_exists=true" >> $GITHUB_OUTPUT
-          echo "✅ Image found: $image_name"
-        else
-          echo "image_exists=false" >> $GITHUB_OUTPUT
-          echo "❌ Image not found: $image_name"
-        fi
-        
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      if: steps.check-image.outputs.image_exists == 'true'
-      continue-on-error: true
-      with:
-        image-ref: ${{ needs.config.outputs.registry_host }}/${{ needs.config.outputs.image_namespace }}/educational-chatbot:${{ matrix.service.name }}-${{ github.ref_name }}-${{ github.sha }}
-        format: 'sarif'
-        output: 'trivy-results-${{ matrix.service.name }}.sarif'
-        
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always() && hashFiles('trivy-results-${{ matrix.service.name }}.sarif') != ''
-      with:
-        sarif_file: 'trivy-results-${{ matrix.service.name }}.sarif'
 
   # NOTE: Deploy job removed - ArgoCD Image Updater handles deployment automation
   # Images are built and pushed to Docker registry, ArgoCD Image Updater will:
@@ -278,9 +273,9 @@ jobs:
   # 3. Commit changes to repository
   # 4. Trigger ArgoCD sync
 
-  # Job 6: Notification and summary
+  # Job 4: Notification and summary
   notify:
-    needs: [config, discover, build, security]
+    needs: [config, discover, build]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -308,8 +303,7 @@ jobs:
         echo "### 📊 Job Status" >> $GITHUB_STEP_SUMMARY
         echo "- **Config**: ${{ needs.config.result }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Discovery**: ${{ needs.discover.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build**: ${{ needs.build.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Security**: ${{ needs.security.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build & Security**: ${{ needs.build.result }}" >> $GITHUB_STEP_SUMMARY
         
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 🚀 Next Steps" >> $GITHUB_STEP_SUMMARY

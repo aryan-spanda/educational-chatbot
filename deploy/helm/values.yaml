@@ -42,7 +42,7 @@ backend:
   replicaCount: 2
   image:
     repository: aryanpola/educational-chatbot
-    tag: "backend-main-31d533a7e54d98d3dd3880d1cf1501149a41c593"
+    tag: "backend-main-1281b7f2fb81f1d7efad0f267a03f320ec7aa548"
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP

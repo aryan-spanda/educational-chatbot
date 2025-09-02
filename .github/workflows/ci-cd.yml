@@ -6,7 +6,8 @@ name: Build and Deploy Educational Chatbot
 
 on:
   push:
-    branches: [ main, develop, staging ]  # Will be filtered by platform-requirements.yml
+    branches: [ main, develop, staging ]
+    # No paths filter - run on every push to these branches
   pull_request:
     branches: [ main ]
 

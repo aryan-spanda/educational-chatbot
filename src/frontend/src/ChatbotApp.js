@@ -8,7 +8,7 @@ export default function ChatbotApp() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
 
-  // Version info for GitOps demo - v1.2.0
+  // Version info for GitOps demo - v1.2.0 test
   const appVersion = "v1.2.0 - Full GitOps Workflow";
 
   const courses = [

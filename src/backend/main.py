@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# Educational Chatbot Backend API
+# Version: v1.2.2 - CI/CD Test Build (Sept 2, 2025)
 import os
 import json
 from dotenv import load_dotenv, find_dotenv

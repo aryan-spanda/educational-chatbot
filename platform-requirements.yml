@@ -4,6 +4,7 @@
 # This file declares the application's infrastructure needs, target
 # environments, and Helm chart location. It is used by the automated
 # onboarding script to generate ArgoCD deployment manifests.
+# Updated: Ensuring CI/CD triggers on every push to main branch
 # =====================================================================
 
 # Section 1: Application Identity

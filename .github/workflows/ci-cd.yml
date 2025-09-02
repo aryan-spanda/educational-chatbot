@@ -267,17 +267,13 @@ jobs:
         timeout: '10m'  # Increase timeout to 10 minutes
         scanners: 'vuln'  # Only scan for vulnerabilities, skip secrets to speed up
         
-    - name: Fallback: Quick Trivy scan (vulnerabilities only)
-      if: steps.check-image.outputs.image_exists == 'true' && failure()
+    - name: Fallback Quick Trivy scan
+      if: ${{ steps.check-image.outputs.image_exists == 'true' && failure() }}
       continue-on-error: true
       run: |
         echo "Full scan failed, attempting quick vulnerability-only scan..."
-        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy:latest image \
-          --timeout 5m \
-          --scanners vuln \
-          --severity HIGH,CRITICAL \
-          ${{ needs.config.outputs.registry_host }}/${{ needs.config.outputs.image_namespace }}/educational-chatbot:${{ matrix.service.name }}-${{ github.ref_name }}-${{ github.sha }} || echo "Quick scan also failed"
+        IMAGE_NAME="${{ needs.config.outputs.registry_host }}/${{ needs.config.outputs.image_namespace }}/educational-chatbot:${{ matrix.service.name }}-${{ github.ref_name }}-${{ github.sha }}"
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 5m --scanners vuln --severity HIGH,CRITICAL "$IMAGE_NAME" || echo "Quick scan also failed"
         
     - name: Check if SARIF file was created
       id: check-sarif

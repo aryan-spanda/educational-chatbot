@@ -192,9 +192,8 @@ jobs:
       with:
         # Set a single, static repository name
         images: ${{ needs.config.outputs.registry_host }}/${{ needs.config.outputs.image_namespace }}/educational-chatbot
-        # Add the service name as a prefix to all tags
+        # Add the service name as a prefix to all tags (removed latest tag)
         tags: |
-          type=raw,value=${{ matrix.service.name }}-latest,enable={{is_default_branch}}
           type=raw,value=${{ matrix.service.name }}-${{ github.ref_name }}-${{ github.sha }}
           
     - name: Build and push Docker image

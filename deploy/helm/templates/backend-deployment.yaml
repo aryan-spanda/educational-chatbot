@@ -42,14 +42,15 @@ spec:
                 mkdir -p {{ .Values.storage.mountPath }}/documents
                 chmod 755 {{ .Values.storage.mountPath }}/documents
               fi
-              chown -R 1001:1001 {{ .Values.storage.mountPath }}
+              echo "Storage directories initialized successfully"
           volumeMounts:
             {{- if .Values.storage.enabled }}
             - name: storage
               mountPath: {{ .Values.storage.mountPath }}
             {{- end }}
           securityContext:
-            runAsUser: 0  # Need root to change ownership
+            runAsNonRoot: true
+            runAsUser: 1001
       containers:
         - name: backend
           securityContext:

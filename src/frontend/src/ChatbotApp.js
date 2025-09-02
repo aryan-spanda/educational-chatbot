@@ -8,8 +8,8 @@ export default function ChatbotApp() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
 
-  // Version info for GitOps demo - v1.2.0
-  const appVersion = "v1.2.0 - Full GitOps Workflow";
+  // Version info for GitOps demo - Updated for CI/CD testing
+  const appVersion = "v1.2.1 - CI/CD Pipeline Test (Sept 2, 2025)";
 
   const courses = [
     { id: 'math101', name: 'Mathematics 101' },
@@ -191,7 +191,7 @@ export default function ChatbotApp() {
       <header className="app-header">
         <div className="header-content">
           <BookOpen className="header-icon" />
-          <h1>AI Course Assistant - Pola Edition</h1>
+          <h1>AI Course Assistant - Pola Edition 🚀 CI/CD Test</h1>
           <p>Select a course and start chatting with your AI assistant</p>
           <p className="pola-text">🚀 Pola GitOps Testing - ArgoCD Auto-Update Demo 🚀</p>
           <small className="version-info">{appVersion}</small>

@@ -6,7 +6,7 @@ app:
 frontend:
   replicaCount: 3
   image:
-    tag: "frontend-main-63e59dedc6658effa2870c9cc8ecaaf7bb83cf88"
+    tag: "frontend-main-0359fe60f4ba2c4b18dd0380347ec317ae859697"
   resources:
     limits:
       cpu: 500m
@@ -28,7 +28,7 @@ frontend:
 backend:
   replicaCount: 3
   image:
-    tag: "backend-main-63e59dedc6658effa2870c9cc8ecaaf7bb83cf88"
+    tag: "backend-main-0359fe60f4ba2c4b18dd0380347ec317ae859697"
   resources:
     limits:
       cpu: 2000m

@@ -13,7 +13,7 @@ frontend:
   replicaCount: 2
   image:
     repository: aryanpola/educational-chatbot
-    tag: "frontend-main-6db4fd4f914740c54d28257bd886505f8b285927"
+    tag: "frontend-main-a560e5fe4f23187348f5c69f31a1ceffa8594c9c"
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -42,7 +42,7 @@ backend:
   replicaCount: 2
   image:
     repository: aryanpola/educational-chatbot
-    tag: "backend-main-9521681d4496893064f06f42d9ce2b22a128e2f7"
+    tag: "backend-main-1a41edbd31dd93cb3c879f3203815dacb7542036"
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
